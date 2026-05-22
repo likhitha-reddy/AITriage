@@ -1,0 +1,73 @@
+services:
+  - type: web
+    name: aitriage-backend
+    runtime: docker
+    plan: free
+    branch: main
+    rootDir: backend
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    autoDeployTrigger: commit
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aitriage-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: aitriage-ai
+          property: hostport
+      - key: CORS_ORIGINS
+        sync: false
+      - key: APP_NAME
+        value: AITriage Backend
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: CREATE_TABLES_ON_STARTUP
+        value: "false"
+      - key: RENDER
+        value: "true"
+
+  # Render free tier does not support true private services.
+  # This remains a free web service, while the backend uses its internal host:port.
+  - type: web
+    name: aitriage-ai
+    runtime: docker
+    plan: free
+    branch: main
+    rootDir: ai
+    dockerContext: ./ai
+    dockerfilePath: ./ai/Dockerfile
+    autoDeployTrigger: commit
+    healthCheckPath: /health
+    envVarGroups:
+      - aitriage-ai-secrets
+    envVars:
+      - key: PORT
+        value: "8001"
+      - key: LLM_PROVIDER
+        value: openai
+      - key: MODEL_NAME
+        value: gpt-4.1-mini
+
+envVarGroups:
+  - name: aitriage-ai-secrets
+    envVars:
+      - key: OPENAI_API_KEY
+        value: ""
+      - key: ANTHROPIC_API_KEY
+        value: ""
+
+databases:
+  - name: aitriage-db
+    plan: free
+    databaseName: aitriage
+    user: aitriage

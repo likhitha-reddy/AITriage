@@ -1,22 +1,38 @@
+import json
+import os
 from functools import lru_cache
 from typing import List
+from urllib.parse import urlparse
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _normalize_service_url(value: str) -> str:
+    normalized = value.strip().rstrip("/")
+    if not normalized:
+        return "http://localhost:8001"
+    if "://" not in normalized:
+        normalized = f"http://{normalized.lstrip('/')}"
+    parsed = urlparse(normalized)
+    if not parsed.netloc and parsed.path:
+        normalized = f"http://{parsed.path.lstrip('/')}"
+    return normalized.rstrip("/")
+
+
 class Settings(BaseSettings):
-    app_name: str = Field(default="AITriage Backend", env="APP_NAME")
-    environment: str = Field(default="development", env="ENVIRONMENT")
-    debug: bool = Field(default=True, env="DEBUG")
-    api_v1_prefix: str = Field(default="/api/v1", env="API_V1_PREFIX")
-    database_url: str = Field(default="sqlite:///./aitriage.db", env="DATABASE_URL")
-    jwt_secret_key: str = Field(default="change-me", env="JWT_SECRET_KEY")
-    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
-    access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
-    refresh_token_expire_days: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
-    ai_service_url: str = Field(default="http://localhost:8001", env="AI_SERVICE_URL")
-    create_tables_on_startup: bool = Field(default=True, env="CREATE_TABLES_ON_STARTUP")
+    app_name: str = Field(default="AITriage Backend")
+    environment: str = Field(default="development")
+    debug: bool = Field(default=True)
+    api_v1_prefix: str = Field(default="/api/v1")
+    database_url: str = Field(default="sqlite:///./aitriage.db")
+    jwt_secret_key: str = Field(default="change-me", validation_alias=AliasChoices("JWT_SECRET_KEY", "JWT_SECRET"))
+    jwt_algorithm: str = Field(default="HS256")
+    access_token_expire_minutes: int = Field(default=30)
+    refresh_token_expire_days: int = Field(default=7)
+    ai_service_url: str = Field(default="http://localhost:8001")
+    create_tables_on_startup: bool = Field(default=True)
+    render: bool = Field(default=False, validation_alias=AliasChoices("RENDER"))
     cors_origins: List[str] = Field(
         default=[
             "http://localhost:3000",
@@ -24,8 +40,7 @@ class Settings(BaseSettings):
             "http://127.0.0.1:3000",
             "http://localhost:8081",
             "exp://127.0.0.1:19000",
-        ],
-        env="CORS_ORIGINS",
+        ]
     )
 
     model_config = SettingsConfigDict(
@@ -35,12 +50,40 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def parse_database_url(cls, value: str) -> str:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("ai_service_url", mode="before")
+    @classmethod
+    def parse_ai_service_url(cls, value: str) -> str:
+        if isinstance(value, str):
+            return _normalize_service_url(value)
+        return value
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value):
         if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
+            normalized = value.strip()
+            if not normalized:
+                return []
+            if normalized.startswith("["):
+                parsed = json.loads(normalized)
+                if isinstance(parsed, list):
+                    return [item.strip() for item in parsed if isinstance(item, str) and item.strip()]
+            return [item.strip() for item in normalized.split(",") if item.strip()]
         return value
+
+    @model_validator(mode="after")
+    def apply_render_defaults(self) -> "Settings":
+        self.ai_service_url = _normalize_service_url(self.ai_service_url)
+        if self.render and self.environment == "development":
+            self.environment = "production"
+        if self.render and os.getenv("CREATE_TABLES_ON_STARTUP") is None:
+            self.create_tables_on_startup = False
+        return self
 
 
 @lru_cache()

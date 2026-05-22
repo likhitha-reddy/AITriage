@@ -1,5 +1,7 @@
 # AITriage
 
+[![CI](https://github.com/likhitha-reddy/AITriage/actions/workflows/ci.yml/badge.svg)](https://github.com/likhitha-reddy/AITriage/actions/workflows/ci.yml)
+
 AITriage is a greenfield AI healthcare triage platform designed to move patients from symptom intake to triage guidance, doctor consultation, prescriptions, and progress tracking. The first product focus is mental health and dermatology, with an architecture intended to expand into additional specialties over time.
 
 ## Architecture Overview
@@ -16,6 +18,11 @@ High-level next steps:
 2. Set up the React Native mobile app in `mobile/`.
 3. Set up the Python AI triage engine in `ai/`.
 4. Define shared schemas and API contracts in `shared/`.
+
+## Deployment
+- Render infrastructure is defined in [`render.yaml`](render.yaml).
+- A step-by-step deployment guide is available in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+- CI runs on pushes to `main` and pull requests via [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Tech Stack
 - React Native
