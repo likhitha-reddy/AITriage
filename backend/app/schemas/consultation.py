@@ -10,6 +10,7 @@ class ConsultationBase(BaseModel):
     status: str = Field(default="scheduled", max_length=50)
     scheduled_at: datetime
     notes: Optional[str] = None
+    cancel_reason: Optional[str] = None
     prescription_id: Optional[int] = None
 
 
@@ -26,7 +27,12 @@ class ConsultationUpdate(BaseModel):
     status: Optional[str] = Field(default=None, max_length=50)
     scheduled_at: Optional[datetime] = None
     notes: Optional[str] = None
+    cancel_reason: Optional[str] = None
     prescription_id: Optional[int] = None
+
+
+class ConsultationCancel(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
 
 
 class ConsultationResponse(ConsultationBase):

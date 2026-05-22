@@ -16,6 +16,6 @@ export const AuthNavigator = () => (
       contentStyle: {backgroundColor: colors.background},
     }}>
     <Stack.Screen name="Login" component={LoginScreen} options={{headerShown: false}} />
-    <Stack.Screen name="Register" component={RegisterScreen} options={{title: 'Create account'}} />
+    <Stack.Screen name="Register" component={RegisterScreen} options={{title: 'Create Account'}} />
   </Stack.Navigator>
 );

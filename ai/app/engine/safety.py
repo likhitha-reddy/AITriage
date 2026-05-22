@@ -22,6 +22,7 @@ EMERGENCY_KEYWORDS = [
     "suicide",
     "self-harm",
     "kill myself",
+    "end my life",
     "overdose",
 ]
 
@@ -29,6 +30,10 @@ DEFAULT_DISCLAIMERS = [
     "This assessment is AI-generated triage support and not a medical diagnosis.",
     "If symptoms worsen, new red flags appear, or you feel unsafe, seek urgent in-person care.",
 ]
+CRISIS_SUPPORT_MESSAGE = (
+    "If you may harm yourself or someone else, call emergency services now. "
+    "If you are in the U.S. or Canada, call or text 988 for immediate crisis support."
+)
 
 
 def detect_emergency(text: str, medical_history: Iterable[str] | None = None) -> bool:
@@ -36,10 +41,16 @@ def detect_emergency(text: str, medical_history: Iterable[str] | None = None) ->
     return any(keyword in combined for keyword in EMERGENCY_KEYWORDS)
 
 
-def build_emergency_response(reason: str | None = None) -> TriageResponse:
+def build_emergency_response(
+    reason: str | None = None,
+    triage_id: str | None = None,
+    detected_domain: str = "emergency",
+) -> TriageResponse:
     diagnosis_name = "Potential emergency warning signs"
     details = reason or "Emergency warning signs were detected in the submitted information."
     return TriageResponse(
+        triage_id=triage_id,
+        detected_domain=detected_domain,
         possible_diagnoses=[
             Diagnosis(
                 name=diagnosis_name,
@@ -52,9 +63,12 @@ def build_emergency_response(reason: str | None = None) -> TriageResponse:
         confidence_scores={diagnosis_name: 1.0},
         severity_level=SeverityLevel.EMERGENCY,
         recommended_action=RecommendedAction.EMERGENCY,
-        follow_up_questions=["Call emergency services or go to the nearest emergency department now."],
+        follow_up_questions=[
+            "Call emergency services or go to the nearest emergency department now.",
+            CRISIS_SUPPORT_MESSAGE,
+        ],
         referral_specialization="emergency medicine",
-        disclaimers=[*DEFAULT_DISCLAIMERS, details],
+        disclaimers=[*DEFAULT_DISCLAIMERS, CRISIS_SUPPORT_MESSAGE, details],
     )
 
 
@@ -102,7 +116,11 @@ def apply_guardrails(
     max_diagnoses: int,
 ) -> TriageResponse:
     if detect_emergency(request.symptoms_text, request.medical_history):
-        return build_emergency_response("Emergency symptoms were detected before completing routine triage.")
+        return build_emergency_response(
+            "Emergency symptoms were detected before completing routine triage.",
+            triage_id=response.triage_id,
+            detected_domain=response.detected_domain,
+        )
 
     diagnoses = _normalize_diagnoses(response.possible_diagnoses, threshold, max_diagnoses)
     if not diagnoses:
@@ -133,6 +151,8 @@ def apply_guardrails(
     follow_up_questions = list(dict.fromkeys(response.follow_up_questions))[:5]
 
     return TriageResponse(
+        triage_id=response.triage_id,
+        detected_domain=response.detected_domain,
         possible_diagnoses=diagnoses,
         confidence_scores=confidence_scores,
         severity_level=severity,

@@ -12,8 +12,11 @@ class PrescriptionBase(BaseModel):
     notes: Optional[str] = None
 
 
-class PrescriptionCreate(PrescriptionBase):
-    pass
+class PrescriptionCreate(BaseModel):
+    consultation_id: int
+    doctor_id: int
+    drugs: List[Dict[str, Any]] = Field(default_factory=list)
+    notes: Optional[str] = None
 
 
 class PrescriptionUpdate(BaseModel):

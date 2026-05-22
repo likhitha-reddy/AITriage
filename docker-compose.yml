@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:15
+    container_name: aitriage-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aitriage-network
+
+  ai:
+    build:
+      context: ./ai
+    container_name: aitriage-ai
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8001:8001"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    networks:
+      - aitriage-network
+
+  backend:
+    build:
+      context: ./backend
+    container_name: aitriage-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      ai:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    networks:
+      - aitriage-network
+
+volumes:
+  postgres_data:
+
+networks:
+  aitriage-network:
+    driver: bridge

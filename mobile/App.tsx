@@ -1,14 +1,18 @@
 import React, {useEffect} from 'react';
 import {StatusBar} from 'react-native';
 import {DefaultTheme, NavigationContainer} from '@react-navigation/native';
+import type {LinkingOptions} from '@react-navigation/native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
 import {AppNavigator} from './src/navigation/AppNavigator';
 import {AuthNavigator} from './src/navigation/AuthNavigator';
 import {LoadingSpinner} from './src/components/LoadingSpinner';
+import {ToastProvider, useToast} from './src/components/ToastProvider';
 import {authService} from './src/services/authService';
+import {registerApiHandlers} from './src/services/api';
 import {useAuthStore} from './src/store/authStore';
 import {colors} from './src/theme/colors';
+import type {RootStackParamList} from './src/navigation/types';
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -19,10 +23,35 @@ const navigationTheme = {
     primary: colors.primary,
     text: colors.text,
     border: colors.border,
+    notification: colors.primary,
   },
 };
 
-const App = (): React.JSX.Element => {
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['aitriage://', 'https://aitriage.app'],
+  config: {
+    screens: {
+      Tabs: {
+        path: '',
+        screens: {
+          Home: 'home',
+          Triage: 'triage',
+          Consultations: 'consultations',
+          Profile: 'profile',
+        },
+      },
+      TriageInput: 'triage/form/:category?',
+      TriageResult: 'triage/result/:triageId?',
+      BookConsultation: 'consultations/book/:specialization?',
+      Prescription: 'consultations/:consultationId/prescription',
+      Progress: 'progress',
+      Subscription: 'subscription',
+    },
+  },
+};
+
+const AppShell = (): React.JSX.Element => {
+  const {showToast} = useToast();
   const {
     isAuthenticated,
     isHydrating,
@@ -30,6 +59,13 @@ const App = (): React.JSX.Element => {
     clearSession,
     setHydrating,
   } = useAuthStore();
+
+  useEffect(() => {
+    registerApiHandlers({
+      onUnauthorized: () => clearSession(),
+      onError: message => showToast(message, 'error'),
+    });
+  }, [clearSession, showToast]);
 
   useEffect(() => {
     let isMounted = true;
@@ -42,8 +78,8 @@ const App = (): React.JSX.Element => {
           return;
         }
 
-        if (session?.token && session.user) {
-          setSession(session.user, session.token);
+        if (session?.accessToken && session.user) {
+          setSession(session.user, session.accessToken);
         } else {
           clearSession();
         }
@@ -62,17 +98,25 @@ const App = (): React.JSX.Element => {
   }, [clearSession, setHydrating, setSession]);
 
   return (
-    <SafeAreaProvider>
+    <>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       {isHydrating ? (
         <LoadingSpinner label="Loading your care dashboard..." fullScreen />
       ) : (
-        <NavigationContainer theme={navigationTheme}>
+        <NavigationContainer linking={linking} theme={navigationTheme}>
           {isAuthenticated ? <AppNavigator /> : <AuthNavigator />}
         </NavigationContainer>
       )}
-    </SafeAreaProvider>
+    </>
   );
 };
+
+const App = (): React.JSX.Element => (
+  <SafeAreaProvider>
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  </SafeAreaProvider>
+);
 
 export default App;

@@ -1,113 +1,111 @@
-import React, {useState} from 'react';
-import {Alert, ScrollView, StyleSheet, Text, View} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import React, {useCallback, useState} from 'react';
+import {StyleSheet, Text, TextInput, View} from 'react-native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 import {Button} from '../../components/Button';
+import {KeyboardScreen} from '../../components/KeyboardScreen';
+import {useToast} from '../../components/ToastProvider';
 import {authService} from '../../services/authService';
+import {patientService} from '../../services/patientService';
+import {subscriptionService} from '../../services/subscriptionService';
 import {useAuthStore} from '../../store/authStore';
 import {colors} from '../../theme/colors';
 import {spacing} from '../../theme/spacing';
 import {typography} from '../../theme/typography';
-import {formatDate} from '../../utils/formatDate';
-import type {MainTabParamList} from '../../navigation/types';
+import type {MainTabParamList, RootStackParamList} from '../../navigation/types';
+import type {Subscription} from '../../types';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'Profile'>;
 
 export const ProfileScreen = (_props: Props) => {
+  const {showToast} = useToast();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const user = useAuthStore(state => state.user);
+  const setUser = useAuthStore(state => state.setUser);
   const clearSession = useAuthStore(state => state.clearSession);
-  const [loading, setLoading] = useState(false);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [name, setName] = useState(user?.name ?? '');
+  const [phone, setPhone] = useState(user?.phone ?? '');
+  const [dateOfBirth, setDateOfBirth] = useState(user?.dateOfBirth ?? '');
+  const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useFocusEffect(useCallback(() => {
+    const load = async () => {
+      try {
+        const [profile, nextSubscription] = await Promise.all([patientService.getProfile(), subscriptionService.getStatus()]);
+        setUser(profile);
+        setName(profile.name);
+        setPhone(profile.phone ?? '');
+        setDateOfBirth(profile.dateOfBirth ?? '');
+        setSubscription(nextSubscription);
+      } catch {
+        return;
+      }
+    };
+    load();
+  }, [setUser]));
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const profile = await patientService.updateProfile({name, phone, dateOfBirth});
+      setUser(profile);
+      showToast('Profile updated.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to update profile.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
-      setLoading(true);
+      setLoggingOut(true);
       await authService.logout();
       clearSession();
     } catch (error) {
-      Alert.alert('Unable to sign out', error instanceof Error ? error.message : 'Please try again.');
+      showToast(error instanceof Error ? error.message : 'Unable to sign out.', 'error');
     } finally {
-      setLoading(false);
+      setLoggingOut(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.profileCard}>
-          <Text style={styles.name}>{user?.firstName} {user?.lastName}</Text>
-          <Text style={styles.email}>{user?.email}</Text>
-        </View>
+    <KeyboardScreen contentContainerStyle={styles.container}>
+      <View style={styles.profileCard}>
+        <Text style={styles.name}>{user?.name ?? 'Your profile'}</Text>
+        <Text style={styles.email}>{user?.email}</Text>
+      </View>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Subscription</Text>
-          <Text style={styles.plan}>{user?.subscription.tier ?? 'free'} plan</Text>
-          <Text style={styles.copy}>Renews on {formatDate(user?.subscription.renewalDate ?? '2026-05-22T12:22:01Z')}</Text>
-          {user?.subscription.benefits.map(benefit => (
-            <Text key={benefit} style={styles.benefit}>• {benefit}</Text>
-          ))}
-        </View>
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Profile details</Text>
+        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Full name" placeholderTextColor={colors.textSecondary} />
+        <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="Phone" placeholderTextColor={colors.textSecondary} />
+        <TextInput style={styles.input} value={dateOfBirth} onChangeText={setDateOfBirth} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textSecondary} />
+        <Button title="Save changes" onPress={handleSave} loading={saving} />
+      </View>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Daily check-in progress</Text>
-          <Text style={styles.copy}>5 of 7 check-ins completed this week.</Text>
-          <Text style={styles.copy}>Consistency unlocks better symptom trend analysis and clinician prep.</Text>
-        </View>
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>Subscription</Text>
+        <Text style={styles.copy}>Current plan: {(subscription?.plan ?? user?.subscriptionTier ?? 'free').toUpperCase()}</Text>
+        <Button title="Manage subscription" variant="secondary" onPress={() => navigation.navigate('Subscription')} />
+      </View>
 
-        <Button title="Sign Out" onPress={handleLogout} loading={loading} variant="secondary" />
-      </ScrollView>
-    </SafeAreaView>
+      <Button title="Sign Out" onPress={handleLogout} loading={loggingOut} variant="secondary" />
+    </KeyboardScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  profileCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: spacing.xl,
-    gap: spacing.xs,
-  },
-  name: {
-    color: colors.text,
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-  },
-  email: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.md,
-  },
-  sectionCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
-  },
-  plan: {
-    color: colors.primary,
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.semibold,
-    textTransform: 'capitalize',
-  },
-  copy: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.sm,
-    lineHeight: 20,
-  },
-  benefit: {
-    color: colors.text,
-    fontSize: typography.sizes.sm,
-  },
+  container: {padding: spacing.lg, gap: spacing.lg},
+  profileCard: {backgroundColor: colors.surface, borderRadius: 24, padding: spacing.xl, gap: spacing.xs},
+  name: {color: colors.text, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold},
+  email: {color: colors.textSecondary, fontSize: typography.sizes.md},
+  sectionCard: {backgroundColor: colors.surface, borderRadius: 20, padding: spacing.lg, gap: spacing.sm},
+  sectionTitle: {color: colors.text, fontSize: typography.sizes.lg, fontWeight: typography.weights.bold},
+  input: {borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceMuted, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: colors.text},
+  copy: {color: colors.textSecondary, fontSize: typography.sizes.sm, lineHeight: 20},
 });

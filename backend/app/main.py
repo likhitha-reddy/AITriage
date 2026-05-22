@@ -1,38 +1,47 @@
-from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
+import app.models  # noqa: F401
 from app.config import get_settings
 from app.database import Base, engine
 from app.middleware.auth import AuthContextMiddleware
+from app.middleware.cors import add_cors_middleware
 from app.routers import auth, consultations, doctors, patients, prescriptions, subscriptions, triage
 
 settings = get_settings()
 
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    if settings.create_tables_on_startup:
-        Base.metadata.create_all(bind=engine)
-    yield
-
-
 app = FastAPI(
     title=settings.app_name,
     debug=settings.debug,
-    lifespan=lifespan,
     version="0.1.0",
 )
 
 app.add_middleware(AuthContextMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+add_cors_middleware(app)
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    if settings.create_tables_on_startup:
+        Base.metadata.create_all(bind=engine)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_: Request, exc: Exception) -> JSONResponse:
+    if settings.debug:
+        return JSONResponse(status_code=500, content={"detail": str(exc)})
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 @app.get("/health", tags=["health"])

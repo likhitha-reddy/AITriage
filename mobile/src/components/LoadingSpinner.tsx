@@ -34,5 +34,6 @@ const styles = StyleSheet.create({
   label: {
     color: colors.textSecondary,
     fontSize: typography.sizes.sm,
+    textAlign: 'center',
   },
 });

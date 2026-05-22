@@ -1,6 +1,6 @@
 import type {NavigatorScreenParams} from '@react-navigation/native';
 
-import type {Prescription, TriageResult} from '../types';
+import type {CareCategory, Prescription, TriageResult} from '../types';
 
 export type MainTabParamList = {
   Home: undefined;
@@ -11,9 +11,19 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<MainTabParamList>;
-  TriageResult: {result: TriageResult};
-  BookConsultation: {doctorId?: string} | undefined;
-  Prescription: {prescription?: Prescription} | undefined;
+  TriageInput: {category?: CareCategory} | undefined;
+  TriageResult: {result?: TriageResult; triageId?: string};
+  BookConsultation:
+    | {
+        doctorId?: string;
+        specialization?: string;
+        triageResultId?: string;
+        notes?: string;
+      }
+    | undefined;
+  Prescription: {consultationId?: string; prescription?: Prescription} | undefined;
+  Progress: undefined;
+  Subscription: undefined;
 };
 
 export type AuthStackParamList = {

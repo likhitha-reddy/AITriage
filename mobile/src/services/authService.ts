@@ -1,94 +1,68 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {bareApi, clearAuthSession, getStoredSession, persistAuthSession} from './api';
+import {mapUser} from './mappers';
+import type {AuthResponse} from '../types';
 
-import type {AuthResponse, User} from '../types';
+interface RegisterPayload {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  dateOfBirth: string;
+}
 
-const TOKEN_KEY = '@aitriage/token';
-const USER_KEY = '@aitriage/user';
-const CURRENT_DATE = '2026-05-22T12:22:01Z';
-
-const wait = (duration = 500) =>
-  new Promise<void>(resolve => {
-    setTimeout(() => resolve(), duration);
-  });
-
-const buildMockUser = (email: string, firstName = 'Avery', lastName = 'Care') : User => ({
-  id: 'user-001',
-  firstName,
-  lastName,
-  email,
-  phone: '+1 (555) 214-8899',
-  subscription: {
-    id: 'subscription-001',
-    tier: 'care-plus',
-    status: 'active',
-    renewalDate: CURRENT_DATE,
-    benefits: ['AI triage sessions', 'Priority consultations', 'Prescription reminders'],
-  },
+const mapAuthResponse = (data: Record<string, unknown>): AuthResponse => ({
+  accessToken: String(data.access_token ?? ''),
+  refreshToken: String(data.refresh_token ?? ''),
+  tokenType: String(data.token_type ?? 'bearer'),
+  user: mapUser((data.user ?? {}) as Record<string, unknown>),
 });
-
-const persistSession = async (response: AuthResponse) => {
-  await AsyncStorage.multiSet([
-    [TOKEN_KEY, response.token],
-    [USER_KEY, JSON.stringify(response.user)],
-  ]);
-};
 
 export const authService = {
   async login(email: string, password: string): Promise<AuthResponse> {
-    await wait();
-
-    if (!email || !password) {
-      throw new Error('Email and password are required.');
-    }
-
-    const response = {
-      token: `mock-token-${CURRENT_DATE}`,
-      user: buildMockUser(email),
-    };
-
-    await persistSession(response);
-    return response;
+    const response = await bareApi.post('/auth/login', {email, password});
+    const mapped = mapAuthResponse(response.data as Record<string, unknown>);
+    await persistAuthSession({...mapped, user: mapped.user});
+    return mapped;
   },
 
-  async register(payload: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-  }): Promise<AuthResponse> {
-    await wait();
+  async register(payload: RegisterPayload): Promise<AuthResponse> {
+    const response = await bareApi.post('/auth/register', {
+      name: payload.name,
+      email: payload.email,
+      phone: payload.phone,
+      password: payload.password,
+      date_of_birth: payload.dateOfBirth,
+      subscription_tier: 'free',
+    });
+    const mapped = mapAuthResponse(response.data as Record<string, unknown>);
+    await persistAuthSession({...mapped, user: mapped.user});
+    return mapped;
+  },
 
-    if (!payload.email || !payload.password) {
-      throw new Error('Registration details are incomplete.');
-    }
-
-    const response = {
-      token: `mock-token-${CURRENT_DATE}`,
-      user: buildMockUser(payload.email, payload.firstName, payload.lastName),
-    };
-
-    await persistSession(response);
-    return response;
+  async refresh(refreshToken: string): Promise<AuthResponse> {
+    const response = await bareApi.post('/auth/refresh', {
+      refresh_token: refreshToken,
+    });
+    const mapped = mapAuthResponse(response.data as Record<string, unknown>);
+    await persistAuthSession({...mapped, user: mapped.user});
+    return mapped;
   },
 
   async logout(): Promise<void> {
-    await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
-  },
-
-  async getToken(): Promise<string | null> {
-    return AsyncStorage.getItem(TOKEN_KEY);
+    await clearAuthSession();
   },
 
   async getStoredSession(): Promise<AuthResponse | null> {
-    const [[, token], [, user]] = await AsyncStorage.multiGet([TOKEN_KEY, USER_KEY]);
-
-    if (!token || !user) {
+    const stored = await getStoredSession();
+    if (!stored.accessToken || !stored.userJson) {
       return null;
     }
 
     return {
-      token,
-      user: JSON.parse(user) as User,
+      accessToken: stored.accessToken,
+      refreshToken: stored.refreshToken ?? '',
+      tokenType: 'bearer',
+      user: mapUser(JSON.parse(stored.userJson) as Record<string, unknown>),
     };
   },
 };

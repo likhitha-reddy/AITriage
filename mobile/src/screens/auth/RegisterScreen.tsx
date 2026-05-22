@@ -1,18 +1,10 @@
-import React, {useState} from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import React, {useMemo, useState} from 'react';
+import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import {Button} from '../../components/Button';
+import {KeyboardScreen} from '../../components/KeyboardScreen';
+import {useToast} from '../../components/ToastProvider';
 import {authService} from '../../services/authService';
 import {useAuthStore} from '../../store/authStore';
 import {colors} from '../../theme/colors';
@@ -22,97 +14,104 @@ import type {AuthStackParamList} from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const RegisterScreen = ({navigation}: Props) => {
+  const {showToast} = useToast();
   const setSession = useAuthStore(state => state.setSession);
-  const [firstName, setFirstName] = useState('Avery');
-  const [lastName, setLastName] = useState('Care');
-  const [email, setEmail] = useState('avery@aitriage.app');
-  const [password, setPassword] = useState('password123');
-  const [confirmPassword, setConfirmPassword] = useState('password123');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = async () => {
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Missing details', 'Complete all fields to continue.');
-      return;
+  const validationMessage = useMemo(() => {
+    if (!name.trim() || !email.trim() || !phone.trim() || !password.trim() || !dateOfBirth.trim()) {
+      return 'Complete every field to create your account.';
     }
-
+    if (!emailPattern.test(email.trim())) {
+      return 'Enter a valid email address.';
+    }
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters.';
+    }
     if (password !== confirmPassword) {
-      Alert.alert('Password mismatch', 'Make sure both passwords match.');
+      return 'Passwords do not match.';
+    }
+    if (!acceptedTerms) {
+      return 'Accept the terms to continue.';
+    }
+    return '';
+  }, [acceptedTerms, confirmPassword, dateOfBirth, email, name, password, phone]);
+
+  const handleRegister = async () => {
+    if (validationMessage) {
+      showToast(validationMessage, 'error');
       return;
     }
 
     try {
       setLoading(true);
       const response = await authService.register({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim(),
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
         password,
+        dateOfBirth: dateOfBirth.trim(),
       });
-      setSession(response.user, response.token);
+      setSession(response.user, response.accessToken);
+      showToast('Account created successfully.', 'success');
     } catch (error) {
-      Alert.alert('Unable to create account', error instanceof Error ? error.message : 'Try again.');
+      showToast(error instanceof Error ? error.message : 'Unable to create account.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.select({ios: 'padding', default: undefined})}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.card}>
-            <Text style={styles.title}>Create your care account</Text>
-            <Text style={styles.subtitle}>
-              Securely save consultations, prescriptions, and AI triage history.
-            </Text>
+    <KeyboardScreen contentContainerStyle={styles.container}>
+      <View style={styles.card}>
+        <Text style={styles.title}>Create your care account</Text>
+        <Text style={styles.subtitle}>
+          Save triage results, track progress, and manage specialist consultations securely.
+        </Text>
 
-            <Text style={styles.label}>First name</Text>
-            <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} />
+        <Text style={styles.label}>Full name</Text>
+        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Jordan Rivera" placeholderTextColor={colors.textSecondary} />
 
-            <Text style={styles.label}>Last name</Text>
-            <TextInput style={styles.input} value={lastName} onChangeText={setLastName} />
+        <Text style={styles.label}>Email</Text>
+        <TextInput autoCapitalize="none" keyboardType="email-address" style={styles.input} value={email} onChangeText={setEmail} placeholder="you@example.com" placeholderTextColor={colors.textSecondary} />
 
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="email-address"
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-            />
+        <Text style={styles.label}>Phone</Text>
+        <TextInput keyboardType="phone-pad" style={styles.input} value={phone} onChangeText={setPhone} placeholder="+1 555 000 0000" placeholderTextColor={colors.textSecondary} />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput secureTextEntry style={styles.input} value={password} onChangeText={setPassword} />
+        <Text style={styles.label}>Date of birth</Text>
+        <TextInput style={styles.input} value={dateOfBirth} onChangeText={setDateOfBirth} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textSecondary} />
 
-            <Text style={styles.label}>Confirm password</Text>
-            <TextInput
-              secureTextEntry
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
+        <Text style={styles.label}>Password</Text>
+        <TextInput secureTextEntry style={styles.input} value={password} onChangeText={setPassword} placeholder="Minimum 8 characters" placeholderTextColor={colors.textSecondary} />
 
-            <Button title="Create Account" onPress={handleRegister} loading={loading} />
-            <Button title="Back to Sign In" onPress={() => navigation.goBack()} variant="secondary" />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <Text style={styles.label}>Confirm password</Text>
+        <TextInput secureTextEntry style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Repeat password" placeholderTextColor={colors.textSecondary} />
+
+        <Pressable style={styles.checkboxRow} onPress={() => setAcceptedTerms(value => !value)}>
+          <View style={[styles.checkbox, acceptedTerms && styles.checkboxSelected]} />
+          <Text style={styles.checkboxLabel}>I agree to the care platform terms and consent to secure health data processing.</Text>
+        </Pressable>
+
+        {validationMessage ? <Text style={styles.helper}>{validationMessage}</Text> : null}
+
+        <Button title="Create Account" onPress={handleRegister} loading={loading} />
+        <Button title="Back to Sign In" onPress={() => navigation.goBack()} variant="secondary" />
+      </View>
+    </KeyboardScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
   container: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -148,5 +147,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.text,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 2,
+  },
+  checkboxSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxLabel: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: typography.sizes.sm,
+    lineHeight: 20,
+  },
+  helper: {
+    color: colors.danger,
+    fontSize: typography.sizes.sm,
   },
 });

@@ -8,6 +8,9 @@ import {ConsultationListScreen} from '../screens/consultations/ConsultationListS
 import {HomeScreen} from '../screens/home/HomeScreen';
 import {PrescriptionScreen} from '../screens/prescriptions/PrescriptionScreen';
 import {ProfileScreen} from '../screens/profile/ProfileScreen';
+import {ProgressScreen} from '../screens/progress/ProgressScreen';
+import {SubscriptionScreen} from '../screens/subscription/SubscriptionScreen';
+import {TriageCategoryScreen} from '../screens/triage/TriageCategoryScreen';
 import {TriageResultScreen} from '../screens/triage/TriageResultScreen';
 import {TriageScreen} from '../screens/triage/TriageScreen';
 import {colors} from '../theme/colors';
@@ -39,12 +42,10 @@ const MainTabs = () => (
         fontSize: 12,
         paddingBottom: 6,
       },
-      tabBarIcon: ({color}) => (
-        <Text style={{fontSize: 18, color}}>{tabIcons[route.name]}</Text>
-      ),
+      tabBarIcon: ({color}) => <Text style={{fontSize: 18, color}}>{tabIcons[route.name]}</Text>,
     })}>
     <Tab.Screen name="Home" component={HomeScreen} />
-    <Tab.Screen name="Triage" component={TriageScreen} />
+    <Tab.Screen name="Triage" component={TriageCategoryScreen} />
     <Tab.Screen name="Consultations" component={ConsultationListScreen} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>
@@ -58,8 +59,11 @@ export const AppNavigator = () => (
       contentStyle: {backgroundColor: colors.background},
     }}>
     <Stack.Screen name="Tabs" component={MainTabs} options={{headerShown: false}} />
-    <Stack.Screen name="TriageResult" component={TriageResultScreen} options={{title: 'Triage Result'}} />
+    <Stack.Screen name="TriageInput" component={TriageScreen} options={{title: 'Symptom Check'}} />
+    <Stack.Screen name="TriageResult" component={TriageResultScreen} options={{title: 'AI Triage Result'}} />
     <Stack.Screen name="BookConsultation" component={BookConsultationScreen} options={{title: 'Book Consultation'}} />
     <Stack.Screen name="Prescription" component={PrescriptionScreen} options={{title: 'Prescription'}} />
+    <Stack.Screen name="Progress" component={ProgressScreen} options={{title: 'Progress Check-In'}} />
+    <Stack.Screen name="Subscription" component={SubscriptionScreen} options={{title: 'Subscription Plans'}} />
   </Stack.Navigator>
 );

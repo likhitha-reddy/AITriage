@@ -1,18 +1,10 @@
-import React, {useState} from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import React, {useMemo, useState} from 'react';
+import {StyleSheet, Text, TextInput, View} from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import {Button} from '../../components/Button';
+import {KeyboardScreen} from '../../components/KeyboardScreen';
+import {ToastProvider, useToast} from '../../components/ToastProvider';
 import {authService} from '../../services/authService';
 import {useAuthStore} from '../../store/authStore';
 import {colors} from '../../theme/colors';
@@ -22,82 +14,89 @@ import type {AuthStackParamList} from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const LoginScreen = ({navigation}: Props) => {
+  const {showToast} = useToast();
   const setSession = useAuthStore(state => state.setSession);
-  const [email, setEmail] = useState('avery@aitriage.app');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const validationMessage = useMemo(() => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing details', 'Please enter both email and password.');
+      return 'Enter your email and password to continue.';
+    }
+    if (!emailPattern.test(email.trim())) {
+      return 'Use a valid email address.';
+    }
+    if (password.trim().length < 8) {
+      return 'Password must be at least 8 characters.';
+    }
+    return '';
+  }, [email, password]);
+
+  const handleLogin = async () => {
+    if (validationMessage) {
+      showToast(validationMessage, 'error');
       return;
     }
 
     try {
       setLoading(true);
-      const response = await authService.login(email.trim(), password);
-      setSession(response.user, response.token);
+      const response = await authService.login(email.trim().toLowerCase(), password.trim());
+      setSession(response.user, response.accessToken);
+      showToast('Signed in successfully.', 'success');
     } catch (error) {
-      Alert.alert('Unable to sign in', error instanceof Error ? error.message : 'Try again.');
+      showToast(error instanceof Error ? error.message : 'Unable to sign in.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.select({ios: 'padding', default: undefined})}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.hero}>
-            <Text style={styles.eyebrow}>AI-POWERED CARE</Text>
-            <Text style={styles.title}>Welcome back to AITriage</Text>
-            <Text style={styles.subtitle}>
-              Start symptom triage, book care, and manage prescriptions in one secure experience.
-            </Text>
-          </View>
+    <KeyboardScreen contentContainerStyle={styles.container}>
+      <View style={styles.hero}>
+        <Text style={styles.eyebrow}>AI-POWERED CARE</Text>
+        <Text style={styles.title}>Welcome back to AITriage</Text>
+        <Text style={styles.subtitle}>
+          Sign in to review symptom triage, book consultations, and manage follow-up care.
+        </Text>
+      </View>
 
-          <View style={styles.card}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="email-address"
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              placeholderTextColor={colors.textSecondary}
-            />
+      <View style={styles.card}>
+        <Text style={styles.label}>Email</Text>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          placeholderTextColor={colors.textSecondary}
+        />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              secureTextEntry
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter your password"
-              placeholderTextColor={colors.textSecondary}
-            />
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          secureTextEntry
+          style={styles.input}
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Enter your password"
+          placeholderTextColor={colors.textSecondary}
+        />
 
-            <Button title="Sign In" onPress={handleLogin} loading={loading} />
-            <Button title="Create Account" onPress={() => navigation.navigate('Register')} variant="secondary" />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        {validationMessage ? <Text style={styles.helper}>{validationMessage}</Text> : null}
+
+        <Button title="Sign In" onPress={handleLogin} loading={loading} />
+        <Button title="Create Account" onPress={() => navigation.navigate('Register')} variant="secondary" />
+      </View>
+    </KeyboardScreen>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
   container: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -142,5 +141,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.text,
+  },
+  helper: {
+    color: colors.danger,
+    fontSize: typography.sizes.sm,
   },
 });

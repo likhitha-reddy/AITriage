@@ -1,11 +1,11 @@
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserBase(BaseModel):
-    email: str = Field(..., min_length=5, max_length=255)
+    email: EmailStr
     name: str = Field(..., min_length=1, max_length=255)
     phone: Optional[str] = Field(default=None, max_length=32)
     date_of_birth: Optional[date] = None
@@ -20,7 +20,6 @@ class UserUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     phone: Optional[str] = Field(default=None, max_length=32)
     date_of_birth: Optional[date] = None
-    subscription_tier: Optional[str] = Field(default=None, max_length=50)
     password: Optional[str] = Field(default=None, min_length=8, max_length=128)
 
 

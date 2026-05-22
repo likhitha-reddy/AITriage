@@ -1,30 +1,47 @@
 import {create} from 'zustand';
 
-import type {TriageResult} from '../types';
+import type {CareCategory, MedicalHistory, PickedImage, TriageResult} from '../types';
 
 interface TriageState {
-  description: string;
-  imageUris: string[];
+  category: CareCategory;
+  symptomsText: string;
+  images: PickedImage[];
+  medicalHistory: MedicalHistory;
   lastResult: TriageResult | null;
   isSubmitting: boolean;
-  setDescription: (description: string) => void;
-  setImages: (imageUris: string[]) => void;
+  setCategory: (category: CareCategory) => void;
+  setSymptomsText: (symptomsText: string) => void;
+  setImages: (images: PickedImage[]) => void;
+  setMedicalHistory: (medicalHistory: Partial<MedicalHistory>) => void;
   setResult: (result: TriageResult | null) => void;
   setSubmitting: (value: boolean) => void;
   reset: () => void;
 }
 
 const initialState = {
-  description: '',
-  imageUris: [] as string[],
+  category: 'general' as CareCategory,
+  symptomsText: '',
+  images: [] as PickedImage[],
+  medicalHistory: {
+    allergies: '',
+    currentMedications: '',
+  },
   lastResult: null as TriageResult | null,
   isSubmitting: false,
 };
 
 export const useTriageStore = create<TriageState>(set => ({
   ...initialState,
-  setDescription: description => set({description}),
-  setImages: imageUris => set({imageUris}),
+  setCategory: category => set({category}),
+  setSymptomsText: symptomsText => set({symptomsText}),
+  setImages: images => set({images}),
+  setMedicalHistory: medicalHistory =>
+    set(state => ({
+      medicalHistory: {
+        ...state.medicalHistory,
+        ...medicalHistory,
+      },
+    })),
   setResult: result => set({lastResult: result}),
   setSubmitting: value => set({isSubmitting: value}),
   reset: () => set(initialState),

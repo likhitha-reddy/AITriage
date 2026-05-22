@@ -1,58 +1,27 @@
 import {api} from './api';
+import {mapDoctor} from './mappers';
 import type {Doctor} from '../types';
 
-const CURRENT_DATE = '2026-05-22T12:22:01Z';
-
-const mockDoctors: Doctor[] = [
-  {
-    id: 'doctor-001',
-    name: 'Dr. Maya Chen',
-    specialization: 'Dermatology',
-    fee: 95,
-    rating: 4.9,
-    experienceYears: 11,
-    availableSlots: [CURRENT_DATE],
-    bio: 'Focuses on skin conditions, rash evaluations, and follow-up treatment planning.',
-  },
-  {
-    id: 'doctor-002',
-    name: 'Dr. Rafael Brooks',
-    specialization: 'Mental Health',
-    fee: 110,
-    rating: 4.8,
-    experienceYears: 13,
-    availableSlots: [CURRENT_DATE],
-    bio: 'Experienced in anxiety, burnout, and virtual-first patient support.',
-  },
-  {
-    id: 'doctor-003',
-    name: 'Dr. Alina Foster',
-    specialization: 'Family Medicine',
-    fee: 85,
-    rating: 4.7,
-    experienceYears: 9,
-    availableSlots: [CURRENT_DATE],
-    bio: 'Helps patients coordinate primary care, medication reviews, and wellness check-ins.',
-  },
-];
+interface DoctorFilters {
+  specialization?: string;
+  available?: boolean;
+}
 
 export const doctorService = {
-  async listDoctors(): Promise<Doctor[]> {
-    try {
-      const response = await api.get<Doctor[]>('/doctors');
-      return response.data;
-    } catch {
-      return mockDoctors;
-    }
+  async listDoctors(filters: DoctorFilters = {}): Promise<Doctor[]> {
+    const response = await api.get('/doctors', {
+      params: {
+        specialization: filters.specialization || undefined,
+        available: filters.available ? 'true' : undefined,
+        available_only: filters.available ? 'true' : undefined,
+      },
+    });
+
+    return (response.data as Record<string, unknown>[]).map(item => mapDoctor(item));
   },
 
   async getDoctorDetail(doctorId: string): Promise<Doctor> {
-    try {
-      const response = await api.get<Doctor>(`/doctors/${doctorId}`);
-      return response.data;
-    } catch {
-      const doctor = mockDoctors.find(item => item.id === doctorId) ?? mockDoctors[0];
-      return doctor;
-    }
+    const response = await api.get(`/doctors/${doctorId}`);
+    return mapDoctor(response.data as Record<string, unknown>);
   },
 };

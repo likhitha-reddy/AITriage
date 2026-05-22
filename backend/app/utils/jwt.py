@@ -26,15 +26,15 @@ def _build_payload(
     return payload
 
 
-def create_access_token(subject: str) -> str:
+def create_access_token(subject: str, extra: Optional[Dict[str, Any]] = None) -> str:
     expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
-    payload = _build_payload(subject=subject, expires_delta=expires_delta, token_type="access")
+    payload = _build_payload(subject=subject, expires_delta=expires_delta, token_type="access", extra=extra)
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-def create_refresh_token(subject: str) -> str:
+def create_refresh_token(subject: str, extra: Optional[Dict[str, Any]] = None) -> str:
     expires_delta = timedelta(days=settings.refresh_token_expire_days)
-    payload = _build_payload(subject=subject, expires_delta=expires_delta, token_type="refresh")
+    payload = _build_payload(subject=subject, expires_delta=expires_delta, token_type="refresh", extra=extra)
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 

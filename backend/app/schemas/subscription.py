@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,8 +24,28 @@ class SubscriptionUpdate(BaseModel):
     expires_at: Optional[datetime] = None
 
 
+class SubscriptionPlanResponse(BaseModel):
+    code: str
+    name: str
+    price_inr: int
+    billing_cycle_days: int
+    consultation_discount_percent: int
+    free_triage_count: int
+    perks: List[str] = Field(default_factory=list)
+
+
+class SubscriptionPerksResponse(BaseModel):
+    has_active_subscription: bool
+    current_plan: str
+    consultation_discount_percent: int
+    free_triage_count: int
+    perks: List[str] = Field(default_factory=list)
+    expires_at: Optional[datetime] = None
+
+
 class SubscriptionResponse(SubscriptionBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     user_id: int
+    plan_details: Optional[SubscriptionPlanResponse] = None

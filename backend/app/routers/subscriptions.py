@@ -1,14 +1,13 @@
-from datetime import datetime, timedelta, timezone
-
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.middleware.auth import get_current_user
-from app.models.subscription import Subscription
 from app.models.user import User
-from app.schemas.subscription import SubscriptionCreate, SubscriptionResponse
+from app.routers._helpers import internal_server_error, raise_for_service_error
+from app.schemas.subscription import SubscriptionCreate, SubscriptionPerksResponse, SubscriptionResponse
+from app.services import subscriptions as subscription_service
+from app.services.exceptions import ServiceError
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
@@ -19,50 +18,45 @@ def subscribe(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SubscriptionResponse:
-    started_at = payload.started_at or datetime.now(timezone.utc)
-    expires_at = payload.expires_at or (started_at + timedelta(days=30))
-
-    subscription = db.execute(
-        select(Subscription)
-        .where(Subscription.user_id == current_user.id)
-        .order_by(Subscription.started_at.desc())
-    ).scalars().first()
-
-    if subscription is None:
-        subscription = Subscription(
-            user_id=current_user.id,
-            plan=payload.plan,
-            status="active",
-            started_at=started_at,
-            expires_at=expires_at,
+    try:
+        return subscription_service.create_subscription_for_user(
+            db,
+            current_user,
+            payload.plan,
+            started_at=payload.started_at,
+            expires_at=payload.expires_at,
         )
-        db.add(subscription)
-    else:
-        subscription.plan = payload.plan
-        subscription.status = "active"
-        subscription.started_at = started_at
-        subscription.expires_at = expires_at
-
-    current_user.subscription_tier = payload.plan
-    db.add(current_user)
-    db.commit()
-    db.refresh(subscription)
-    return subscription
+    except ServiceError as exc:
+        raise_for_service_error(exc)
+    except Exception as exc:
+        raise internal_server_error("Unable to create subscription") from exc
 
 
+@router.get("/active", response_model=SubscriptionResponse)
 @router.get("/status", response_model=SubscriptionResponse)
 def get_subscription_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SubscriptionResponse:
-    subscription = db.execute(
-        select(Subscription)
-        .where(Subscription.user_id == current_user.id)
-        .order_by(Subscription.started_at.desc())
-    ).scalars().first()
-    if subscription is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
-    return subscription
+    try:
+        return subscription_service.get_active_subscription(db, current_user)
+    except ServiceError as exc:
+        raise_for_service_error(exc)
+    except Exception as exc:
+        raise internal_server_error("Unable to fetch subscription") from exc
+
+
+@router.get("/perks", response_model=SubscriptionPerksResponse)
+def get_current_subscription_perks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SubscriptionPerksResponse:
+    try:
+        return subscription_service.get_subscription_perks(db, current_user)
+    except ServiceError as exc:
+        raise_for_service_error(exc)
+    except Exception as exc:
+        raise internal_server_error("Unable to fetch subscription perks") from exc
 
 
 @router.post("/cancel", response_model=SubscriptionResponse)
@@ -70,18 +64,9 @@ def cancel_subscription(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SubscriptionResponse:
-    subscription = db.execute(
-        select(Subscription)
-        .where(Subscription.user_id == current_user.id)
-        .order_by(Subscription.started_at.desc())
-    ).scalars().first()
-    if subscription is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
-
-    subscription.status = "cancelled"
-    subscription.expires_at = datetime.now(timezone.utc)
-    current_user.subscription_tier = "free"
-    db.add(current_user)
-    db.commit()
-    db.refresh(subscription)
-    return subscription
+    try:
+        return subscription_service.cancel_subscription(db, current_user)
+    except ServiceError as exc:
+        raise_for_service_error(exc)
+    except Exception as exc:
+        raise internal_server_error("Unable to cancel subscription") from exc

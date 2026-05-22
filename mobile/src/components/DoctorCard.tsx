@@ -13,15 +13,16 @@ interface DoctorCardProps {
 }
 
 export const DoctorCard = ({doctor, selected = false, onPress}: DoctorCardProps) => (
-  <Pressable
-    onPress={onPress}
-    style={[styles.card, selected && styles.selectedCard]}>
+  <Pressable onPress={onPress} style={[styles.card, selected && styles.selectedCard]}>
     <View style={styles.header}>
-      <View>
+      <View style={styles.flex}>
         <Text style={styles.name}>{doctor.name}</Text>
         <Text style={styles.specialization}>{doctor.specialization}</Text>
+        <Text style={styles.qualification}>{doctor.qualification}</Text>
       </View>
-      <Text style={styles.rating}>★ {doctor.rating.toFixed(1)}</Text>
+      <View style={styles.ratingPill}>
+        <Text style={styles.rating}>★ {doctor.rating.toFixed(1)}</Text>
+      </View>
     </View>
 
     <Text style={styles.bio}>{doctor.bio}</Text>
@@ -36,7 +37,7 @@ export const DoctorCard = ({doctor, selected = false, onPress}: DoctorCardProps)
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: spacing.lg,
     gap: spacing.md,
     borderWidth: 1,
@@ -44,7 +45,11 @@ const styles = StyleSheet.create({
   },
   selectedCard: {
     borderColor: colors.primary,
-    backgroundColor: '#F0F6FF',
+    backgroundColor: '#EDF5FF',
+  },
+  flex: {
+    flex: 1,
+    gap: spacing.xs,
   },
   header: {
     flexDirection: 'row',
@@ -59,7 +64,18 @@ const styles = StyleSheet.create({
   specialization: {
     color: colors.primary,
     fontSize: typography.sizes.sm,
-    marginTop: spacing.xs,
+    fontWeight: typography.weights.semibold,
+  },
+  qualification: {
+    color: colors.textSecondary,
+    fontSize: typography.sizes.sm,
+  },
+  ratingPill: {
+    backgroundColor: '#FFF5E1',
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    alignSelf: 'flex-start',
   },
   rating: {
     color: colors.warning,

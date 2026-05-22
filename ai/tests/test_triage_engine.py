@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from app.config import Settings
 from app.engine.triage_engine import TriageEngine
 from app.models.diagnosis import RecommendedAction
-from app.models.triage import SeverityLevel, TriageRequest
+from app.models.triage import ConversationTurn, SeverityLevel, TriageRequest
 
 
 class TriageEngineTests(unittest.TestCase):
@@ -33,6 +33,7 @@ class TriageEngineTests(unittest.TestCase):
             patient_age=31,
             patient_gender="female",
             medical_history=["eczema"],
+            conversation_history=[ConversationTurn(role="user", content="The rash started after a new cream.")],
         )
         mock_payload = {
             "possible_diagnoses": [
@@ -62,11 +63,38 @@ class TriageEngineTests(unittest.TestCase):
         with patch.object(TriageEngine, "_call_llm_json", return_value=mock_payload):
             response = self.engine.analyze_symptoms(request)
 
+        self.assertEqual(response.detected_domain, "dermatology")
         self.assertEqual(response.referral_specialization, "dermatology")
         self.assertEqual(response.recommended_action, RecommendedAction.CONSULT_DOCTOR)
         self.assertEqual(response.severity_level, SeverityLevel.MODERATE)
         self.assertLessEqual(len(response.possible_diagnoses), 3)
         self.assertTrue(response.disclaimers)
+        self.assertTrue(response.triage_id)
+        follow_up = self.engine.get_follow_up_questions(response.triage_id)
+        self.assertGreaterEqual(len(follow_up.follow_up_questions), 2)
+
+    def test_mental_health_routing_merges_specialized_guardrails(self) -> None:
+        request = TriageRequest(
+            symptoms_text="I feel anxious every day, cannot sleep well, and keep having panic episodes.",
+            medical_history=["prior stress episodes"],
+        )
+        mock_payload = {
+            "possible_diagnoses": ["Stress response"],
+            "confidence_scores": {"Stress response": 0.45},
+            "severity_level": "mild",
+            "recommended_action": "SELF_CARE",
+            "follow_up_questions": [],
+            "referral_specialization": "general practice",
+            "disclaimers": ["Not a diagnosis."],
+        }
+
+        with patch.object(TriageEngine, "_call_llm_json", return_value=mock_payload):
+            response = self.engine.analyze_symptoms(request)
+
+        self.assertEqual(response.detected_domain, "mental_health")
+        self.assertEqual(response.referral_specialization, "psychiatry")
+        self.assertEqual(response.recommended_action, RecommendedAction.CONSULT_DOCTOR)
+        self.assertTrue(any("Over the last 2 weeks" in item for item in response.follow_up_questions))
 
     def test_emergency_bypasses_llm(self) -> None:
         request = TriageRequest(symptoms_text="I have chest pain and I can't breathe well.")

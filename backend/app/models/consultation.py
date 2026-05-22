@@ -14,6 +14,7 @@ class Consultation(Base):
     status = Column(String(50), nullable=False, default="scheduled")
     scheduled_at = Column(DateTime(timezone=True), nullable=False)
     notes = Column(Text, nullable=True)
+    cancel_reason = Column(Text, nullable=True)
     prescription_id = Column(Integer, nullable=True, unique=True)
 
     patient = relationship("User", back_populates="consultations", foreign_keys=[patient_id])

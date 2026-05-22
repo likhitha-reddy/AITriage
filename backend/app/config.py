@@ -15,13 +15,15 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     refresh_token_expire_days: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
-    ai_service_url: str = Field(default="http://localhost:8080", env="AI_SERVICE_URL")
+    ai_service_url: str = Field(default="http://localhost:8001", env="AI_SERVICE_URL")
     create_tables_on_startup: bool = Field(default=True, env="CREATE_TABLES_ON_STARTUP")
     cors_origins: List[str] = Field(
         default=[
             "http://localhost:3000",
             "http://localhost:19006",
             "http://127.0.0.1:3000",
+            "http://localhost:8081",
+            "exp://127.0.0.1:19000",
         ],
         env="CORS_ORIGINS",
     )

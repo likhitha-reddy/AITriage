@@ -7,6 +7,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.database import get_db
 from app.models.user import User
+from app.services import auth as auth_service
+from app.services.exceptions import UnauthorizedError
 from app.utils.jwt import validate_token_type
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -32,22 +34,14 @@ class AuthContextMiddleware(BaseHTTPMiddleware):
 
 
 def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
     try:
-        payload = validate_token_type(token, "access")
-        user_id = int(payload["sub"])
-    except (ValueError, TypeError):
-        raise credentials_exception
-
-    user = db.get(User, user_id)
-    if user is None:
-        raise credentials_exception
-    return user
+        return auth_service.get_user_from_access_token(db, token)
+    except UnauthorizedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=exc.detail,
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
 
 
 def get_optional_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:

@@ -34,6 +34,10 @@ class DoctorResponse(DoctorBase):
     id: int
 
 
+class DoctorMatchResponse(DoctorResponse):
+    match_score: float = Field(default=0.0, ge=0.0)
+
+
 class DoctorAvailabilityResponse(BaseModel):
     doctor_id: int
     is_available: bool

@@ -1,65 +1,48 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.middleware.auth import get_current_user
 from app.models.user import User
+from app.routers._helpers import internal_server_error, raise_for_service_error
 from app.schemas.auth import RefreshTokenRequest, TokenResponse, UserLogin
 from app.schemas.user import UserCreate, UserResponse
-from app.utils.jwt import create_access_token, create_refresh_token, validate_token_type
-from app.utils.security import get_password_hash, verify_password
+from app.services import auth as auth_service
+from app.services.exceptions import ServiceError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _build_token_response(user: User) -> TokenResponse:
-    access_token = create_access_token(str(user.id))
-    refresh_token = create_refresh_token(str(user.id))
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserResponse.model_validate(user),
-    )
-
-
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: Session = Depends(get_db)) -> TokenResponse:
-    existing_user = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
-    if existing_user:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered")
-
-    user = User(
-        email=payload.email,
-        hashed_password=get_password_hash(payload.password),
-        name=payload.name,
-        phone=payload.phone,
-        date_of_birth=payload.date_of_birth,
-        subscription_tier=payload.subscription_tier,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return _build_token_response(user)
+    try:
+        return auth_service.register_user(db, payload)
+    except ServiceError as exc:
+        raise_for_service_error(exc)
+    except Exception as exc:
+        raise internal_server_error("Unable to register user") from exc
 
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
-    user = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
-    if user is None or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
-    return _build_token_response(user)
+    try:
+        return auth_service.login_user(db, payload)
+    except ServiceError as exc:
+        raise_for_service_error(exc)
+    except Exception as exc:
+        raise internal_server_error("Unable to log in") from exc
 
 
 @router.post("/refresh", response_model=TokenResponse)
 def refresh_token(payload: RefreshTokenRequest, db: Session = Depends(get_db)) -> TokenResponse:
     try:
-        token_payload = validate_token_type(payload.refresh_token, "refresh")
-        user_id = int(token_payload["sub"])
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        return auth_service.refresh_user_session(db, payload.refresh_token)
+    except ServiceError as exc:
+        raise_for_service_error(exc)
+    except Exception as exc:
+        raise internal_server_error("Unable to refresh token") from exc
 
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    return _build_token_response(user)
+@router.get("/me", response_model=UserResponse)
+def get_authenticated_user(current_user: User = Depends(get_current_user)) -> UserResponse:
+    return UserResponse.model_validate(current_user)

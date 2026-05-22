@@ -1,91 +1,107 @@
-import React, {useEffect, useState} from 'react';
-import {FlatList, StyleSheet, Text, View} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import React, {useCallback, useMemo, useState} from 'react';
+import {FlatList, RefreshControl, StyleSheet, Text, View} from 'react-native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 import {Button} from '../../components/Button';
 import {ConsultationCard} from '../../components/ConsultationCard';
+import {EmptyState} from '../../components/EmptyState';
 import {LoadingSpinner} from '../../components/LoadingSpinner';
+import {useToast} from '../../components/ToastProvider';
 import {consultationService} from '../../services/consultationService';
 import {colors} from '../../theme/colors';
 import {spacing} from '../../theme/spacing';
 import {typography} from '../../theme/typography';
+import {CURRENT_DATETIME} from '../../utils/constants';
 import type {Consultation} from '../../types';
 import type {MainTabParamList, RootStackParamList} from '../../navigation/types';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'Consultations'>;
+type TabKey = 'upcoming' | 'past' | 'cancelled';
 
 export const ConsultationListScreen = (_props: Props) => {
+  const {showToast} = useToast();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabKey>('upcoming');
 
-  useEffect(() => {
-    const loadConsultations = async () => {
-      try {
-        const result = await consultationService.listConsultations();
-        setConsultations(result);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadConsultations();
+  const loadConsultations = useCallback(async (refresh = false) => {
+    if (refresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    try {
+      const result = await consultationService.listConsultations();
+      setConsultations(result);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
+
+  useFocusEffect(useCallback(() => { loadConsultations(); }, [loadConsultations]));
+
+  const filtered = useMemo(() => consultations.filter(item => {
+    if (activeTab === 'cancelled') {
+      return item.status === 'cancelled';
+    }
+    const isPast = item.status === 'completed' || item.scheduledAt < CURRENT_DATETIME;
+    return activeTab === 'past' ? isPast && item.status !== 'cancelled' : !isPast && item.status !== 'cancelled';
+  }), [activeTab, consultations]);
+
+  const handleCancel = async (consultationId: string) => {
+    try {
+      await consultationService.cancelConsultation(consultationId);
+      showToast('Consultation cancelled.', 'success');
+      loadConsultations(true);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to cancel consultation.', 'error');
+    }
+  };
 
   if (loading) {
     return <LoadingSpinner label="Loading consultations..." fullScreen />;
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <FlatList
-        data={consultations}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={styles.title}>Consultations</Text>
-            <Text style={styles.subtitle}>
-              Review your upcoming appointments and recent care conversations.
-            </Text>
-            <Button title="Book New Consultation" onPress={() => navigation.navigate('BookConsultation')} />
+    <FlatList
+      style={styles.safeArea}
+      contentContainerStyle={styles.content}
+      data={filtered}
+      keyExtractor={item => item.id}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadConsultations(true)} />}
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <Text style={styles.title}>Consultations</Text>
+          <View style={styles.tabRow}>
+            {(['upcoming', 'past', 'cancelled'] as TabKey[]).map(tab => (
+              <Button key={tab} title={tab[0].toUpperCase() + tab.slice(1)} variant={activeTab === tab ? 'primary' : 'secondary'} onPress={() => setActiveTab(tab)} />
+            ))}
           </View>
-        }
-        renderItem={({item}) => <ConsultationCard consultation={item} />}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-      />
-    </SafeAreaView>
+          <Button title="Book New Consultation" onPress={() => navigation.navigate('BookConsultation')} />
+        </View>
+      }
+      renderItem={({item}) => (
+        <ConsultationCard
+          consultation={item}
+          onCancel={item.status === 'scheduled' ? () => handleCancel(item.id) : undefined}
+          onViewPrescription={item.prescriptionId ? () => navigation.navigate('Prescription', {consultationId: item.id}) : undefined}
+        />
+      )}
+      ItemSeparatorComponent={() => <View style={{height: spacing.md}} />}
+      ListEmptyComponent={<EmptyState title="No consultations yet" description="Book your first consultation after triage to see it here." />}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: spacing.lg,
-  },
-  header: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  title: {
-    color: colors.text,
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: typography.sizes.md,
-    lineHeight: 24,
-    marginBottom: spacing.sm,
-  },
-  separator: {
-    height: spacing.md,
-  },
+  safeArea: {flex: 1, backgroundColor: colors.background},
+  content: {padding: spacing.lg},
+  header: {gap: spacing.sm, marginBottom: spacing.lg},
+  title: {color: colors.text, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold},
+  tabRow: {gap: spacing.sm},
 });
