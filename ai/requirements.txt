@@ -1,0 +1,8 @@
+openai
+anthropic
+Pillow
+pydantic
+python-dotenv
+httpx
+fastapi
+uvicorn

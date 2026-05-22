@@ -1,0 +1,66 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.dist/
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# FastAPI / local app state
+*.db
+*.sqlite3
+.env
+.env.*
+
+# Node / React Native
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.expo/
+.expo-shared/
+.web-build/
+coverage/
+
+# React Native / Metro
+.metro-health-check*
+.metro-cache/
+android/.gradle/
+android/app/build/
+android/build/
+ios/build/
+ios/Pods/
+
+# JavaScript / TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+
+# Misc
+.tmp/
+temp/
