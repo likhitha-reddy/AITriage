@@ -4,15 +4,16 @@ import {DefaultTheme, NavigationContainer} from '@react-navigation/native';
 import type {LinkingOptions} from '@react-navigation/native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
-import {AppNavigator} from './src/navigation/AppNavigator';
-import {AuthNavigator} from './src/navigation/AuthNavigator';
 import {LoadingSpinner} from './src/components/LoadingSpinner';
 import {ToastProvider, useToast} from './src/components/ToastProvider';
+import {AppNavigator} from './src/navigation/AppNavigator';
+import {AuthNavigator} from './src/navigation/AuthNavigator';
+import type {RootStackParamList} from './src/navigation/types';
 import {authService} from './src/services/authService';
 import {registerApiHandlers} from './src/services/api';
 import {useAuthStore} from './src/store/authStore';
+import {useNotificationStore} from './src/store/notificationStore';
 import {colors} from './src/theme/colors';
-import type {RootStackParamList} from './src/navigation/types';
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -46,6 +47,9 @@ const linking: LinkingOptions<RootStackParamList> = {
       Prescription: 'consultations/:consultationId/prescription',
       Progress: 'progress',
       Subscription: 'subscription',
+      Notifications: 'notifications',
+      VideoCall: 'consultations/:consultationId/video',
+      PostCall: 'consultations/:consultationId/post-call',
     },
   },
 };
@@ -59,6 +63,8 @@ const AppShell = (): React.JSX.Element => {
     clearSession,
     setHydrating,
   } = useAuthStore();
+  const initializeNotifications = useNotificationStore(state => state.initialize);
+  const clearNotifications = useNotificationStore(state => state.clear);
 
   useEffect(() => {
     registerApiHandlers({
@@ -90,12 +96,25 @@ const AppShell = (): React.JSX.Element => {
       }
     };
 
-    bootstrap();
+    void bootstrap();
 
     return () => {
       isMounted = false;
     };
   }, [clearSession, setHydrating, setSession]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      clearNotifications();
+      return;
+    }
+
+    void initializeNotifications();
+
+    return () => {
+      clearNotifications();
+    };
+  }, [clearNotifications, initializeNotifications, isAuthenticated]);
 
   return (
     <>

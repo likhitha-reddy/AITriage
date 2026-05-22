@@ -1,10 +1,12 @@
 export type SubscriptionPlan = 'free' | 'basic' | 'premium' | string;
 export type SubscriptionStatus = 'active' | 'trialing' | 'cancelled' | 'past_due' | string;
-export type ConsultationStatus = 'scheduled' | 'completed' | 'cancelled';
+export type ConsultationStatus = 'scheduled' | 'completed' | 'cancelled' | 'in_progress';
 export type CareCategory = 'general' | 'mental_health' | 'dermatology';
 export type TriageSeverity = 'green' | 'yellow' | 'orange' | 'red';
 export type ActionLevel = 'self-care' | 'consultation' | 'urgent-care' | 'emergency';
 export type ToastVariant = 'success' | 'error' | 'info';
+export type VideoSessionStatus = 'waiting' | 'connecting' | 'active' | 'ended';
+export type NotificationType = 'consultation' | 'prescription' | 'subscription' | 'payment' | 'video' | 'system';
 
 export interface Subscription {
   id: string;
@@ -40,6 +42,17 @@ export interface Doctor {
   availableSlots: string[];
 }
 
+export interface VideoSession {
+  id: string;
+  consultationId: string;
+  roomId: string;
+  status: VideoSessionStatus;
+  startedAt?: string;
+  joinedAt?: string;
+  endedAt?: string;
+  connectionStatus?: string;
+}
+
 export interface Consultation {
   id: string;
   patientId?: string;
@@ -50,6 +63,8 @@ export interface Consultation {
   notes?: string;
   prescriptionId?: string;
   status: ConsultationStatus;
+  videoSession?: VideoSession;
+  callStatus?: VideoSessionStatus;
 }
 
 export interface Diagnosis {
@@ -115,6 +130,29 @@ export interface Prescription {
   drugs: PrescriptionDrug[];
   notes?: string;
   createdAt: string;
+}
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  createdAt: string;
+  isRead: boolean;
+  readAt?: string;
+}
+
+export interface DeviceToken {
+  token: string;
+  platform: string;
+  registeredAt: string;
+}
+
+export interface PostCallRating {
+  consultationId: string;
+  rating: number;
+  createdAt: string;
+  feedback?: string;
 }
 
 export interface SymptomPayload {

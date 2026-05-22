@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
@@ -6,8 +8,11 @@ from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.routers._helpers import internal_server_error, raise_for_service_error
 from app.schemas.triage import TriageResultCreate, TriageResultResponse
+from app.services import notifications as notification_service
 from app.services import triage as triage_service
 from app.services.exceptions import ServiceError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/triage", tags=["triage"])
 
@@ -19,7 +24,12 @@ def submit_triage(
     current_user: User = Depends(get_current_user),
 ) -> TriageResultResponse:
     try:
-        return triage_service.submit_triage(db, current_user, payload)
+        triage_result = triage_service.submit_triage(db, current_user, payload)
+        try:
+            notification_service.notify_triage_complete(db, triage_result)
+        except Exception:
+            logger.exception("Triage notification failed", extra={"triage_result_id": triage_result.id})
+        return triage_result
     except ServiceError as exc:
         raise_for_service_error(exc)
     except Exception as exc:

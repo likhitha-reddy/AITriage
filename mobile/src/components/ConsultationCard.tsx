@@ -2,7 +2,7 @@ import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 
 import {Button} from './Button';
-import type {Consultation} from '../types';
+import type {Consultation, VideoSession} from '../types';
 import {colors} from '../theme/colors';
 import {spacing} from '../theme/spacing';
 import {typography} from '../theme/typography';
@@ -10,13 +10,24 @@ import {formatDate} from '../utils/formatDate';
 
 interface ConsultationCardProps {
   consultation: Consultation;
+  callStatus?: VideoSession['status'];
   onCancel?: () => void;
+  onJoinCall?: () => void;
   onViewPrescription?: () => void;
 }
 
+const callBadgeLabel: Record<VideoSession['status'], string> = {
+  waiting: 'WAITING',
+  connecting: 'CONNECTING',
+  active: 'ACTIVE',
+  ended: 'ENDED',
+};
+
 export const ConsultationCard = ({
   consultation,
+  callStatus,
   onCancel,
+  onJoinCall,
   onViewPrescription,
 }: ConsultationCardProps) => (
   <View style={styles.card}>
@@ -27,16 +38,24 @@ export const ConsultationCard = ({
           {consultation.doctor?.specialization ?? 'Consultation'}
         </Text>
       </View>
-      <View style={[styles.badge, badgeStyles[consultation.status]]}>
-        <Text style={styles.badgeText}>{consultation.status.toUpperCase()}</Text>
+      <View style={styles.badgeRow}>
+        <View style={[styles.badge, badgeStyles[consultation.status]]}>
+          <Text style={styles.badgeText}>{consultation.status.toUpperCase()}</Text>
+        </View>
+        {callStatus ? (
+          <View style={[styles.badge, callBadgeStyles[callStatus]]}>
+            <Text style={styles.badgeText}>{callBadgeLabel[callStatus]}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
 
     <Text style={styles.reason}>{consultation.notes ?? 'Care review requested.'}</Text>
     <Text style={styles.meta}>Scheduled for {formatDate(consultation.scheduledAt)}</Text>
 
-    {(onCancel || onViewPrescription) ? (
+    {(onJoinCall || onCancel || onViewPrescription) ? (
       <View style={styles.actions}>
+        {onJoinCall ? <Button title="Join Call" onPress={onJoinCall} /> : null}
         {onViewPrescription ? (
           <Button title="View Prescription" variant="secondary" onPress={onViewPrescription} />
         ) : null}
@@ -61,6 +80,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
+  badgeRow: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
   doctor: {
     color: colors.text,
     fontSize: typography.sizes.md,
@@ -82,6 +105,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
@@ -105,10 +129,30 @@ const styles = StyleSheet.create({
   cancelled: {
     backgroundColor: colors.danger,
   },
+  waiting: {
+    backgroundColor: colors.warning,
+  },
+  connecting: {
+    backgroundColor: colors.info,
+  },
+  active: {
+    backgroundColor: colors.success,
+  },
+  ended: {
+    backgroundColor: '#6C7A89',
+  },
 });
 
 const badgeStyles = {
   scheduled: styles.scheduled,
   completed: styles.completed,
   cancelled: styles.cancelled,
+  in_progress: styles.scheduled,
+};
+
+const callBadgeStyles = {
+  waiting: styles.waiting,
+  connecting: styles.connecting,
+  active: styles.active,
+  ended: styles.ended,
 };

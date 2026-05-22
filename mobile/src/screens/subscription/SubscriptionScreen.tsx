@@ -4,16 +4,23 @@ import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 
 import {Button} from '../../components/Button';
 import {KeyboardScreen} from '../../components/KeyboardScreen';
+import {PaymentButton} from '../../components/PaymentButton';
 import {useToast} from '../../components/ToastProvider';
 import {subscriptionService} from '../../services/subscriptionService';
 import {colors} from '../../theme/colors';
 import {spacing} from '../../theme/spacing';
 import {typography} from '../../theme/typography';
-import {PLAN_PERKS} from '../../utils/constants';
+import {PLAN_PERKS, PLAN_PRICES} from '../../utils/constants';
 import type {Subscription} from '../../types';
 import type {RootStackParamList} from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Subscription'>;
+
+const PLAN_COLORS: Record<string, string> = {
+  free: colors.success,
+  basic: colors.primary,
+  premium: '#7B4DFF',
+};
 
 export const SubscriptionScreen = (_props: Props) => {
   const {showToast} = useToast();
@@ -25,7 +32,7 @@ export const SubscriptionScreen = (_props: Props) => {
       const status = await subscriptionService.getStatus();
       setSubscription(status);
     };
-    load();
+    void load();
   }, []);
 
   const subscribe = async (plan: string) => {
@@ -43,21 +50,64 @@ export const SubscriptionScreen = (_props: Props) => {
 
   return (
     <KeyboardScreen contentContainerStyle={styles.container}>
-      {Object.entries(PLAN_PERKS).map(([plan, perks]) => (
-        <View key={plan} style={styles.card}>
-          <Text style={styles.title}>{plan.toUpperCase()}</Text>
-          {perks.map(perk => <Text key={perk} style={styles.copy}>• {perk}</Text>)}
-          <Button title={subscription?.plan === plan ? 'Current plan' : 'Subscribe'} onPress={() => subscribe(plan)} disabled={subscription?.plan === plan} loading={loadingPlan === plan} />
-        </View>
-      ))}
-      {subscription ? <Button title="Cancel current subscription" variant="secondary" onPress={async () => { const next = await subscriptionService.cancel(); setSubscription(next); showToast('Subscription cancelled.', 'success'); }} /> : null}
+      {Object.entries(PLAN_PERKS).map(([plan, perks]) => {
+        const isCurrent = subscription?.plan === plan;
+        const accentColor = PLAN_COLORS[plan] ?? colors.primary;
+        const amount = PLAN_PRICES[plan] ?? 0;
+
+        return (
+          <View key={plan} style={[styles.card, {borderTopColor: accentColor}]}> 
+            <View style={styles.cardHeader}>
+              <Text style={styles.title}>{plan.toUpperCase()}</Text>
+              <Text style={[styles.price, {color: accentColor}]}>{amount === 0 ? 'Free' : `₹${amount}/month`}</Text>
+            </View>
+            {perks.map(perk => <Text key={perk} style={styles.copy}>• {perk}</Text>)}
+            <PaymentButton
+              amount={amount}
+              label={isCurrent ? 'Current plan' : plan === 'free' ? 'Start Free' : 'Subscribe'}
+              accentColor={accentColor}
+              disabled={isCurrent}
+              loading={loadingPlan === plan}
+              onPaymentComplete={() => subscribe(plan)}
+            />
+          </View>
+        );
+      })}
+      {subscription ? (
+        <Button
+          title="Cancel current subscription"
+          variant="secondary"
+          onPress={async () => {
+            try {
+              const next = await subscriptionService.cancel();
+              setSubscription(next);
+              showToast('Subscription cancelled.', 'success');
+            } catch (error) {
+              showToast(error instanceof Error ? error.message : 'Unable to cancel subscription.', 'error');
+            }
+          }}
+        />
+      ) : null}
     </KeyboardScreen>
   );
 };
 
 const styles = StyleSheet.create({
   container: {padding: spacing.lg, gap: spacing.lg},
-  card: {backgroundColor: colors.surface, borderRadius: 20, padding: spacing.lg, gap: spacing.sm},
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    borderTopWidth: 5,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
   title: {color: colors.text, fontSize: typography.sizes.lg, fontWeight: typography.weights.bold},
+  price: {fontSize: typography.sizes.md, fontWeight: typography.weights.bold},
   copy: {color: colors.textSecondary, fontSize: typography.sizes.sm, lineHeight: 20},
 });

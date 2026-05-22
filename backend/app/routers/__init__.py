@@ -1,11 +1,13 @@
-from app.routers import auth, consultations, doctors, patients, prescriptions, subscriptions, triage
+from app.routers import auth, consultations, doctors, notifications, patients, prescriptions, subscriptions, triage, video
 
 __all__ = [
     "auth",
     "consultations",
     "doctors",
+    "notifications",
     "patients",
     "prescriptions",
     "subscriptions",
     "triage",
+    "video",
 ]

@@ -7,7 +7,7 @@ from app.config import get_settings
 from app.database import Base, engine
 from app.middleware.auth import AuthContextMiddleware
 from app.middleware.cors import add_cors_middleware
-from app.routers import auth, consultations, doctors, patients, prescriptions, subscriptions, triage
+from app.routers import auth, consultations, doctors, notifications, patients, prescriptions, subscriptions, triage, video
 
 settings = get_settings()
 
@@ -58,5 +58,7 @@ app.include_router(patients.router, prefix=settings.api_v1_prefix)
 app.include_router(doctors.router, prefix=settings.api_v1_prefix)
 app.include_router(triage.router, prefix=settings.api_v1_prefix)
 app.include_router(consultations.router, prefix=settings.api_v1_prefix)
+app.include_router(video.router, prefix=settings.api_v1_prefix)
+app.include_router(notifications.router, prefix=settings.api_v1_prefix)
 app.include_router(prescriptions.router, prefix=settings.api_v1_prefix)
 app.include_router(subscriptions.router, prefix=settings.api_v1_prefix)

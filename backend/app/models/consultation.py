@@ -1,6 +1,7 @@
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
+
 from app.database import Base
 
 
@@ -20,3 +21,10 @@ class Consultation(Base):
     patient = relationship("User", back_populates="consultations", foreign_keys=[patient_id])
     doctor = relationship("Doctor", back_populates="consultations", foreign_keys=[doctor_id])
     triage_result = relationship("TriageResult", back_populates="consultations", foreign_keys=[triage_result_id])
+    video_session = relationship(
+        "VideoSession",
+        back_populates="consultation",
+        cascade="all, delete-orphan",
+        uselist=False,
+        foreign_keys="VideoSession.consultation_id",
+    )

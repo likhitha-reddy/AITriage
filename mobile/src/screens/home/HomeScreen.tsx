@@ -1,5 +1,6 @@
-import React, {useCallback, useState} from 'react';
-import {RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, {useCallback, useEffect, useState} from 'react';
+import {Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -8,13 +9,16 @@ import {Button} from '../../components/Button';
 import {EmptyState} from '../../components/EmptyState';
 import {Skeleton} from '../../components/Skeleton';
 import {consultationService} from '../../services/consultationService';
+import {notificationService} from '../../services/notificationService';
 import {patientService} from '../../services/patientService';
 import {subscriptionService} from '../../services/subscriptionService';
 import {triageService} from '../../services/triageService';
 import {useAuthStore} from '../../store/authStore';
+import {useNotificationStore} from '../../store/notificationStore';
 import {colors} from '../../theme/colors';
 import {spacing} from '../../theme/spacing';
 import {typography} from '../../theme/typography';
+import {NOTIFICATION_PROMPT_KEY} from '../../utils/constants';
 import {formatDate} from '../../utils/formatDate';
 import type {MainTabParamList, RootStackParamList} from '../../navigation/types';
 import type {Consultation, Subscription, TriageResult} from '../../types';
@@ -25,6 +29,7 @@ export const HomeScreen = ({navigation}: Props) => {
   const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const user = useAuthStore(state => state.user);
   const setUser = useAuthStore(state => state.setUser);
+  const refreshNotifications = useNotificationStore(state => state.refresh);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [recentResults, setRecentResults] = useState<TriageResult[]>([]);
   const [upcomingConsultations, setUpcomingConsultations] = useState<Consultation[]>([]);
@@ -58,9 +63,46 @@ export const HomeScreen = ({navigation}: Props) => {
     }
   }, [setUser]);
 
+  useEffect(() => {
+    const promptForNotifications = async () => {
+      const seenPrompt = await AsyncStorage.getItem(NOTIFICATION_PROMPT_KEY);
+      if (seenPrompt) {
+        return;
+      }
+
+      const completePrompt = async () => {
+        await AsyncStorage.setItem(NOTIFICATION_PROMPT_KEY, 'true');
+        await notificationService.registerDevice(`demo-${Platform.OS}-device`, Platform.OS);
+        await refreshNotifications();
+      };
+
+      Alert.alert(
+        'Stay in the loop 🔔',
+        'Notification permission prompt coming soon. For now, we can enable demo reminders for consultations and prescriptions.',
+        [
+          {
+            text: 'Maybe later',
+            style: 'cancel',
+            onPress: () => {
+              void AsyncStorage.setItem(NOTIFICATION_PROMPT_KEY, 'true');
+            },
+          },
+          {
+            text: 'Enable demo alerts',
+            onPress: () => {
+              void completePrompt();
+            },
+          },
+        ],
+      );
+    };
+
+    void promptForNotifications();
+  }, [refreshNotifications]);
+
   useFocusEffect(
     useCallback(() => {
-      loadDashboard();
+      void loadDashboard();
     }, [loadDashboard]),
   );
 
@@ -68,7 +110,7 @@ export const HomeScreen = ({navigation}: Props) => {
     <ScrollView
       style={styles.safeArea}
       contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadDashboard(true)} />}>
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadDashboard(true)} />}>
       <View style={styles.headerCard}>
         <Text style={styles.greeting}>Hello, {user?.firstName ?? 'there'}</Text>
         <Text style={styles.title}>Your care dashboard is live.</Text>

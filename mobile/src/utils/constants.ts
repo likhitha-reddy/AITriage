@@ -1,9 +1,15 @@
-export const CURRENT_DATETIME = '2026-05-22T13:39:17Z';
+export const CURRENT_DATETIME = '2026-05-22T14:01:55Z';
 
 export const PLAN_PERKS: Record<string, string[]> = {
   free: ['Basic AI triage', '1 care summary at a time', 'Standard doctor discovery'],
   basic: ['Unlimited AI triage', 'Consultation booking', 'Prescription access'],
   premium: ['Priority consultations', 'Daily progress tracking', 'Premium care coordination'],
+};
+
+export const PLAN_PRICES: Record<string, number> = {
+  free: 0,
+  basic: 499,
+  premium: 999,
 };
 
 export const MENTAL_HEALTH_HELPLINES = [
@@ -17,3 +23,5 @@ export const DEFAULT_DOCTOR_SLOTS = [
   '2026-05-22T15:30:00Z',
   '2026-05-22T17:00:00Z',
 ];
+
+export const NOTIFICATION_PROMPT_KEY = '@aitriage/notification-permission-prompted';
