@@ -43,3 +43,46 @@ Established the initial monorepo layout and baseline architecture documentation 
 1. Built the mobile app as a manual React Native + TypeScript scaffold in `mobile/`, including app entry files, Babel, Metro, and TypeScript configuration so the project is runnable without `react-native init`.
 2. Used a root native stack wrapped around a bottom-tab navigator so Home, Triage, Consultations, and Profile stay primary tabs while booking, prescription, and triage result flows remain focused detail screens.
 3. Implemented mock-first service layers with Axios-ready APIs, AsyncStorage-backed auth persistence, and Zustand stores so frontend work can move independently of backend delivery.
+
+## 2026-05-22 — Ash: Specialized Triage
+
+**Date:** 2026-05-22T13:39:17Z
+
+- Upgraded `ai/app/engine/triage_engine.py` to auto-detect `mental_health`, `dermatology`, or `general` domains, preserve conversation history, store in-memory triage context by `triage_id`, and merge specialized assessments with general triage output under existing safety guardrails.
+- Added `ai/app/engine/mental_health.py` with a dedicated screener for anxiety, depression, stress, panic, sleep disturbance, and PTSD-like symptoms, including crisis escalation for self-harm or suicidal ideation and India crisis resources: AASRA helpline: 9820466726, iCall: 9152987821, Vandrevala Foundation: 1860-2662-345.
+- Added `ai/app/engine/dermatology.py` with condition matching for acne, eczema/dermatitis, psoriasis, fungal infections, allergic reactions, and suspicious lesions, with image-analysis integration and urgency buckets from cosmetic concern to urgent dermatology referral.
+- Added `ai/app/engine/progress_tracker.py` and expanded progress models so multi-check-in history can detect worsening trends, new symptoms, re-consultation thresholds, and mental health crisis re-screening.
+- Expanded prompt templates in `ai/app/engine/prompt_templates.py` for specialized mental health, dermatology, and contextual follow-up generation so future LLM calls stay aligned with the two launch specialties.
+- Extended `ai/app/routers/triage.py` with dedicated focused endpoints while keeping the original `/triage` flow backward compatible for existing integrations and tests.
+- Preserved backward compatibility in `TriageEngine.assess_progress` for legacy single-check-in callers while routing new structured progress history through `ProgressTracker`.
+
+## 2026-05-22 — Dallas: Backend Services Complete
+
+**Date:** 2026-05-22T13:39:17Z
+
+- Finalized the FastAPI service layer so auth, doctor matching, consultations, prescriptions, subscriptions, and triage flows now execute through `backend/app/services/` instead of router-local placeholder logic.
+- Added doctor matching filters for specialization, availability, rating, and consultation fee range, plus consultation lifecycle enforcement and consultation-linked prescription creation.
+- Standardized subscription handling around seeded `free`, `basic`, and `premium` plans with persisted perks metadata for consultation discounts and free triage allowances.
+- Integrated the backend triage flow with Ash's AI service at `http://localhost:8001/triage` while persisting structured AI output and patient-owned triage records.
+- Added root `docker-compose.yml`, root `.env.example`, backend seed tooling, and centralized CORS/error/startup setup so local multi-service bring-up is consistent.
+
+## 2026-05-22 — Kane: Test Suite
+
+**Date:** 2026-05-22T13:39:17Z
+
+- Added dedicated `pytest.ini` files for `backend/` and `ai/` so tests run from each service root with predictable discovery.
+- Standardized backend tests on an in-memory SQLite database plus FastAPI dependency overrides to keep API tests isolated from local files and external databases.
+- Mocked backend AI-triage HTTP calls in tests instead of relying on a live AI service.
+- Strengthened backend auth validation by switching login/registration email fields to `EmailStr` and adding `email-validator` to backend requirements.
+- Added AI safety regression coverage for emergency escalation, disclaimers, confidence thresholds, mental health crisis support, dermatology routing, and progress re-consultation logic.
+- Fixed supporting code coupled to the new tests: escaped prompt-template JSON braces, added crisis helpline messaging to emergency responses, and corrected dermatology image red-flag flattening.
+
+## 2026-05-22 — Lambert: API Wiring
+
+**Date:** 2026-05-22T13:39:17Z
+
+- Standardize the React Native app on a single Axios client with AsyncStorage-backed JWT persistence, automatic bearer injection, refresh-token retries, and centralized user-facing error handling.
+- Treat backend responses as transport models and map them into mobile-first view models so the UI can stay stable even when API shapes are flatter than the screen needs.
+- Cache recent triage results and progress check-ins locally to preserve usable patient flows when optional endpoints such as history/progress are unavailable.
+- Route triage-to-consultation handoff through deep-linked navigation parameters so recommended specialization and triage context prefill the booking flow.
+- Use shared frontend UX primitives (toast notifications, skeleton placeholders, empty states, and keyboard-safe form wrappers) across patient-facing mobile screens for a more production-ready healthcare experience.
