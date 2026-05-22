@@ -33,15 +33,15 @@ class Settings(BaseSettings):
     ai_service_url: str = Field(default="http://localhost:8001")
     create_tables_on_startup: bool = Field(default=True)
     render: bool = Field(default=False, validation_alias=AliasChoices("RENDER"))
-    cors_origins: List[str] = Field(
-        default=[
-            "http://localhost:3000",
-            "http://localhost:19006",
-            "http://127.0.0.1:3000",
-            "http://localhost:8081",
-            "exp://127.0.0.1:19000",
-        ]
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:19006,http://127.0.0.1:3000,http://localhost:8081,exp://127.0.0.1:19000"
     )
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        if not self.cors_origins:
+            return []
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -60,20 +60,6 @@ class Settings(BaseSettings):
     def parse_ai_service_url(cls, value: str) -> str:
         if isinstance(value, str):
             return _normalize_service_url(value)
-        return value
-
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, value):
-        if isinstance(value, str):
-            normalized = value.strip()
-            if not normalized:
-                return []
-            if normalized.startswith("["):
-                parsed = json.loads(normalized)
-                if isinstance(parsed, list):
-                    return [item.strip() for item in parsed if isinstance(item, str) and item.strip()]
-            return [item.strip() for item in normalized.split(",") if item.strip()]
         return value
 
     @model_validator(mode="after")
