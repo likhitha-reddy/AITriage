@@ -4,7 +4,6 @@ services:
     runtime: docker
     plan: free
     branch: main
-    rootDir: backend
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
     autoDeployTrigger: commit
@@ -43,7 +42,6 @@ services:
     runtime: docker
     plan: free
     branch: main
-    rootDir: ai
     dockerContext: ./ai
     dockerfilePath: ./ai/Dockerfile
     autoDeployTrigger: commit
