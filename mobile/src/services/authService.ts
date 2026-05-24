@@ -7,7 +7,7 @@ interface RegisterPayload {
   email: string;
   phone: string;
   password: string;
-  dateOfBirth: string;
+  dateOfBirth?: string;
 }
 
 const mapAuthResponse = (data: Record<string, unknown>): AuthResponse => ({

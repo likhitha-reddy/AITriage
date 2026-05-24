@@ -17,22 +17,32 @@ interface KeyboardScreenProps {
   contentContainerStyle?: ViewStyle;
 }
 
-export const KeyboardScreen = ({children, contentContainerStyle}: KeyboardScreenProps) => (
-  <SafeAreaView style={styles.safeArea}>
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+export const KeyboardScreen = ({children, contentContainerStyle}: KeyboardScreenProps) => {
+  const content = (
+    <ScrollView
+      contentContainerStyle={contentContainerStyle}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}>
+      {children}
+    </ScrollView>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.select({ios: 'padding', default: undefined})}>
-        <ScrollView
-          contentContainerStyle={contentContainerStyle}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {children}
-        </ScrollView>
+        {Platform.OS === 'web' ? (
+          content
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            {content}
+          </TouchableWithoutFeedback>
+        )}
       </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
-  </SafeAreaView>
-);
+    </SafeAreaView>
+  );
+};
 
 const styles = StyleSheet.create({
   safeArea: {

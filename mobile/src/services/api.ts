@@ -22,7 +22,7 @@ interface RetryConfig extends InternalAxiosRequestConfig {
 
 const runtimeEnv = (globalThis as {process?: {env?: Record<string, string | undefined>}}).process?.env;
 
-export const API_BASE_URL = runtimeEnv?.API_BASE_URL ?? 'http://localhost:8000/api/v1';
+export const API_BASE_URL = runtimeEnv?.API_BASE_URL ?? 'http://localhost:8005/api/v1';
 export const ACCESS_TOKEN_KEY = '@aitriage/access-token';
 export const REFRESH_TOKEN_KEY = '@aitriage/refresh-token';
 export const USER_KEY = '@aitriage/user';

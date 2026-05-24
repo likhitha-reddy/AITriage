@@ -1,4 +1,12 @@
 {
-  "name": "AITriage",
-  "displayName": "AITriage"
+  "expo": {
+    "name": "AITriage",
+    "slug": "aitriage",
+    "version": "1.0.0",
+    "platforms": ["web", "ios", "android"],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
 }
